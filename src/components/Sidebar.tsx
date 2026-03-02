@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2, Eye, EyeOff, Ruler, Grid, Camera, Hand, MousePointer2 } from "lucide-react";
 import { ParsedPart } from "@/lib/stepParser";
 
@@ -76,29 +76,44 @@ export function Sidebar({
     const [savedFiles, setSavedFiles] = useState<SavedFile[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isLoadingFiles, setIsLoadingFiles] = useState(true);
+    const isMountedRef = useRef(false);
 
     /**
      * Polls the internal Next.js API route to retrieve the list of 
      * STEP files previously uploaded to the server's local file system.
      */
-    const fetchFiles = async () => {
+    const fetchFiles = async (signal?: AbortSignal) => {
+        if (!isMountedRef.current) return;
         setIsLoadingFiles(true);
         try {
-            const res = await fetch('/api/files');
+            const res = await fetch('/api/files', { signal });
             if (res.ok) {
                 const data = await res.json();
-                setSavedFiles(data.files || []);
+                if (isMountedRef.current) {
+                    setSavedFiles(data.files || []);
+                }
             }
-        } catch (error) {
+        } catch (error: unknown) {
+            // Ignore abort errors which are expected on fast unmounts
+            if (error instanceof Error && error.name === 'AbortError') return;
             console.error("Failed to fetch files", error);
         } finally {
-            setIsLoadingFiles(false);
+            if (isMountedRef.current) {
+                setIsLoadingFiles(false);
+            }
         }
     };
 
-    // Auto-fetch the file list when the Sidebar mounts
+    // Auto-fetch the file list when the Sidebar mounts, securely handling unmounts
     useEffect(() => {
-        fetchFiles();
+        isMountedRef.current = true;
+        const controller = new AbortController();
+        fetchFiles(controller.signal);
+
+        return () => {
+            isMountedRef.current = false;
+            controller.abort();
+        };
     }, []);
 
     /**

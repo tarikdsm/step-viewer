@@ -32,19 +32,29 @@ export async function GET() {
         // are excluded. The route only serves valid STEP geometries to the React client.
         const validFiles = files.filter(f => f.toLowerCase().endsWith('.step') || f.toLowerCase().endsWith('.stp'));
 
-        // Get file stats (size, modified date)
-        const fileDetails = await Promise.all(
+        // Get file stats (size, modified date). We handle ENOENT individually so one deleted file doesn't crash the whole list.
+        const fileDetailsResults = await Promise.all(
             validFiles.map(async (filename) => {
                 const filePath = path.join(UPLOADS_DIR, filename);
-                const stats = await fs.stat(filePath);
-                return {
-                    name: filename,
-                    size: stats.size,
-                    createdAt: stats.birthtime,
-                    modifiedAt: stats.mtime
-                };
+                try {
+                    const stats = await fs.stat(filePath);
+                    return {
+                        name: filename,
+                        size: stats.size,
+                        createdAt: stats.birthtime,
+                        modifiedAt: stats.mtime
+                    };
+                } catch (err: unknown) {
+                    if (err instanceof Error && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+                        return null; // Ignore missing files (race condition edge case)
+                    }
+                    throw err; // Re-throw other unexpected errors
+                }
             })
         );
+
+        // Filter out nulls from missing files
+        const fileDetails = fileDetailsResults.filter(Boolean) as Array<{ name: string, size: number, createdAt: Date, modifiedAt: Date }>;
 
         // Sort by the newest modifications descending so the most recently uploaded files appear at the top of the Sidebar list
         fileDetails.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
@@ -77,9 +87,17 @@ export async function POST(request: Request) {
         }
 
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const extension = safeName.substring(safeName.lastIndexOf('.')).toLowerCase();
+        const lastDotIndex = safeName.lastIndexOf('.');
+        let extension = '';
+        let baseName = safeName;
 
-        if (extension !== '.step' && extension !== '.stp' && file.type !== 'model/step') {
+        if (lastDotIndex !== -1) {
+            extension = safeName.substring(lastDotIndex).toLowerCase();
+            baseName = safeName.substring(0, lastDotIndex);
+        }
+
+        // Validate extension strictly FIRST, rather than just trusting MIME type which can be spoofed.
+        if (extension !== '.step' && extension !== '.stp') {
             return NextResponse.json({ error: "Invalid file type. Only .step or .stp are allowed." }, { status: 400 });
         }
 
@@ -88,7 +106,6 @@ export async function POST(request: Request) {
         // Anti-collision logic: Modify filename to embed a discrete timestamp value so 
         // two users uploading "test_part.step" won't overwrite each other's native geometries
         const timestamp = Date.now();
-        const baseName = safeName.substring(0, safeName.lastIndexOf('.'));
         const finalName = `${baseName}_${timestamp}${extension}`;
 
         const filePath = path.join(UPLOADS_DIR, finalName);

@@ -139,7 +139,16 @@ export default function Home() {
         globalOpacity={globalOpacity}
         onGlobalOpacityChange={setGlobalOpacity}
         measurementMode={measurementMode}
-        onToggleMeasurementMode={() => setMeasurementMode(prev => !prev)}
+        onToggleMeasurementMode={() => {
+          setMeasurementMode(prev => {
+            const next = !prev;
+            if (next) {
+              setDragMode(false);
+              setBoxSelectMode(false);
+            }
+            return next;
+          });
+        }}
         parts={parts}
         selectedParts={selectedParts}
         onSelectPart={handleSelectPart}
@@ -151,9 +160,27 @@ export default function Home() {
         onToggleWireframe={() => setWireframeMode(prev => !prev)}
         onScreenshot={handleScreenshot}
         dragMode={dragMode}
-        onToggleDragMode={() => setDragMode(prev => !prev)}
+        onToggleDragMode={() => {
+          setDragMode(prev => {
+            const next = !prev;
+            if (next) {
+              setMeasurementMode(false);
+              setBoxSelectMode(false);
+            }
+            return next;
+          });
+        }}
         boxSelectMode={boxSelectMode}
-        onToggleBoxSelectMode={() => setBoxSelectMode(prev => !prev)}
+        onToggleBoxSelectMode={() => {
+          setBoxSelectMode(prev => {
+            const next = !prev;
+            if (next) {
+              setMeasurementMode(false);
+              setDragMode(false);
+            }
+            return next;
+          });
+        }}
       />
       <Viewer3D
         file={file}
