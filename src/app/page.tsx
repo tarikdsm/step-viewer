@@ -12,6 +12,9 @@ export default function Home() {
   const [measurementMode, setMeasurementMode] = useState<boolean>(false);
   const [parts, setParts] = useState<ParsedPart[]>([]);
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
+  const [wireframeMode, setWireframeMode] = useState<boolean>(false);
+  const [dragMode, setDragMode] = useState<boolean>(false);
+  const [boxSelectMode, setBoxSelectMode] = useState<boolean>(false);
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
@@ -20,6 +23,9 @@ export default function Home() {
     setExplodedValue(0);
     setGlobalOpacity(1);
     setMeasurementMode(false);
+    setWireframeMode(false);
+    setDragMode(false);
+    setBoxSelectMode(false);
   };
 
   const handleLoadSavedFile = async (filename: string) => {
@@ -47,6 +53,10 @@ export default function Home() {
     });
   };
 
+  const handleSelectMultipleParts = (ids: string[]) => {
+    setSelectedParts(prev => Array.from(new Set([...prev, ...ids])));
+  };
+
   const handleTogglePartVisibility = (id: string) => {
     setParts(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p));
   };
@@ -67,6 +77,16 @@ export default function Home() {
     setSelectedParts([]);
   };
 
+  const handleScreenshot = () => {
+    const canvasObj = document.querySelector('canvas');
+    if (canvasObj) {
+      const a = document.createElement('a');
+      a.download = 'step-screenshot.png';
+      a.href = canvasObj.toDataURL('image/png');
+      a.click();
+    }
+  };
+
   return (
     <main className="flex w-screen h-screen overflow-hidden bg-slate-900 font-sans">
       <Sidebar
@@ -84,15 +104,26 @@ export default function Home() {
         onLoadSavedFile={handleLoadSavedFile}
         onTogglePartVisibility={handleTogglePartVisibility}
         onChangePartColor={handleChangePartColor}
+        wireframeMode={wireframeMode}
+        onToggleWireframe={() => setWireframeMode(prev => !prev)}
+        onScreenshot={handleScreenshot}
+        dragMode={dragMode}
+        onToggleDragMode={() => setDragMode(prev => !prev)}
+        boxSelectMode={boxSelectMode}
+        onToggleBoxSelectMode={() => setBoxSelectMode(prev => !prev)}
       />
       <Viewer3D
         file={file}
         explodedValue={explodedValue}
         globalOpacity={globalOpacity}
         measurementMode={measurementMode}
+        wireframeMode={wireframeMode}
+        dragMode={dragMode}
+        boxSelectMode={boxSelectMode}
         parts={parts}
         selectedParts={selectedParts}
         onPartsParsed={setParts}
+        onSelectMultipleParts={handleSelectMultipleParts}
       />
     </main>
   );

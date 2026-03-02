@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2, Eye, EyeOff, Ruler } from "lucide-react";
+import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2, Eye, EyeOff, Ruler, Grid, Camera, Hand, MousePointer2 } from "lucide-react";
 
 export interface SavedFile {
     name: string;
@@ -25,6 +25,13 @@ interface SidebarProps {
     onLoadSavedFile: (filename: string) => void;
     onTogglePartVisibility: (id: string) => void;
     onChangePartColor: (id: string, color: string) => void;
+    wireframeMode: boolean;
+    onToggleWireframe: () => void;
+    onScreenshot: () => void;
+    dragMode: boolean;
+    onToggleDragMode: () => void;
+    boxSelectMode: boolean;
+    onToggleBoxSelectMode: () => void;
 }
 
 export function Sidebar({
@@ -42,6 +49,13 @@ export function Sidebar({
     onLoadSavedFile,
     onTogglePartVisibility,
     onChangePartColor,
+    wireframeMode,
+    onToggleWireframe,
+    onScreenshot,
+    dragMode,
+    onToggleDragMode,
+    boxSelectMode,
+    onToggleBoxSelectMode,
 }: SidebarProps) {
     const [savedFiles, setSavedFiles] = useState<SavedFile[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -206,29 +220,70 @@ export function Sidebar({
 
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-semibold text-slate-300 flex items-center gap-2" title="Global opacity for inner inspection">
-                            Opacidade (Raio-X)
+                        <label className="text-sm font-semibold text-slate-300 flex items-center gap-2" title="Global transparency for inner inspection">
+                            Transparência
                         </label>
-                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{Math.round(globalOpacity * 100)}%</span>
+                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{Math.round((1 - globalOpacity) * 100)}%</span>
                     </div>
                     <input
                         type="range"
-                        min="10"
-                        max="100"
-                        value={globalOpacity * 100}
-                        onChange={(e) => onGlobalOpacityChange(Number(e.target.value) / 100)}
+                        min="0"
+                        max="90"
+                        value={(1 - globalOpacity) * 100}
+                        onChange={(e) => onGlobalOpacityChange(1 - (Number(e.target.value) / 100))}
                         className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                     />
                 </div>
 
-                <button
-                    onClick={onToggleMeasurementMode}
-                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg cursor-pointer transition-colors font-medium border
-                        ${measurementMode ? 'bg-amber-600/20 text-amber-400 border-amber-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
-                >
-                    <Ruler size={16} />
-                    {measurementMode ? "Medição Ativa (Clique em 2 pontos)" : "Modo de Medição"}
-                </button>
+                <div className="flex gap-2 w-full mt-2">
+                    <button
+                        onClick={onToggleMeasurementMode}
+                        className={`flex-1 flex items-center justify-center flex-col gap-1 py-2 px-1 rounded-lg cursor-pointer transition-colors text-[10px] font-medium border
+                            ${measurementMode ? 'bg-amber-600/20 text-amber-400 border-amber-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+                        title="Medição Ativa (Clique em 2 pontos)"
+                    >
+                        <Ruler size={14} />
+                        Medidas
+                    </button>
+                    <button
+                        onClick={onToggleDragMode}
+                        className={`flex-1 flex items-center justify-center flex-col gap-1 py-2 px-1 rounded-lg cursor-pointer transition-colors text-[10px] font-medium border
+                            ${dragMode ? 'bg-purple-600/20 text-purple-400 border-purple-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+                        title="Mover Peças Livremente"
+                    >
+                        <Hand size={14} />
+                        Mover
+                    </button>
+                    <button
+                        onClick={onToggleBoxSelectMode}
+                        className={`flex-1 flex items-center justify-center flex-col gap-1 py-2 px-1 rounded-lg cursor-pointer transition-colors text-[10px] font-medium border
+                            ${boxSelectMode ? 'bg-green-600/20 text-green-400 border-green-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+                        title="Seleção de Área"
+                    >
+                        <MousePointer2 size={14} />
+                        Área
+                    </button>
+                </div>
+
+                <div className="flex gap-2 w-full mt-2">
+                    <button
+                        onClick={onToggleWireframe}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg cursor-pointer transition-colors text-xs font-medium border
+                            ${wireframeMode ? 'bg-blue-600/20 text-blue-400 border-blue-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+                        title="Alternar Modo Aramado"
+                    >
+                        <Grid size={14} />
+                        Aramado
+                    </button>
+                    <button
+                        onClick={onScreenshot}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg cursor-pointer transition-colors text-xs font-medium border bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                        title="Baixar Imagem"
+                    >
+                        <Camera size={14} />
+                        Captura
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
