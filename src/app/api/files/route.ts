@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 
 // Define the absolute path to the local generic 'uploads' directory relative to the Next.js project root
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
@@ -103,10 +104,15 @@ export async function POST(request: Request) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Anti-collision logic: Modify filename to embed a discrete timestamp value so 
-        // two users uploading "test_part.step" won't overwrite each other's native geometries
-        const timestamp = Date.now();
-        const finalName = `${baseName}_${timestamp}${extension}`;
+        // Verify the file starts with the ISO-10303-21 STEP header to reject non-STEP content
+        // masquerading with a valid extension.
+        const headerSlice = buffer.subarray(0, 20).toString('ascii').toUpperCase();
+        if (!headerSlice.includes('ISO-10303')) {
+            return NextResponse.json({ error: "File does not appear to be a valid STEP file (missing ISO-10303 header)" }, { status: 400 });
+        }
+
+        // Anti-collision logic: Use a UUID to guarantee uniqueness even under concurrent uploads
+        const finalName = `${baseName}_${randomUUID()}${extension}`;
 
         const filePath = path.join(UPLOADS_DIR, finalName);
         await fs.writeFile(filePath, buffer);

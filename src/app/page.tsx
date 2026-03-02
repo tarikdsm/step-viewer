@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Viewer3D } from "@/components/Viewer3D";
 import { ParsedPart } from "@/lib/stepParser";
@@ -17,6 +17,17 @@ export default function Home() {
   const [globalOpacity, setGlobalOpacity] = useState<number>(1);
   const [parts, setParts] = useState<ParsedPart[]>([]);
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
+  // Ref used to access latest parts on unmount without stale closures
+  const partsRef = useRef(parts);
+  partsRef.current = parts;
+
+  // Dispose all Three.js geometries when the page unmounts to prevent GPU memory leaks
+  useEffect(() => {
+    return () => {
+      partsRef.current.forEach(p => { if (p.geometry) p.geometry.dispose(); });
+    };
+  }, []);
+
   // --- Interactive Mode Flags ---
   const [measurementMode, setMeasurementMode] = useState<boolean>(false);
   const [wireframeMode, setWireframeMode] = useState<boolean>(false);
@@ -122,12 +133,14 @@ export default function Home() {
    */
   const handleScreenshot = () => {
     const canvasObj = document.querySelector('canvas');
-    if (canvasObj) {
-      const a = document.createElement('a');
-      a.download = 'step-screenshot.png';
-      a.href = canvasObj.toDataURL('image/png');
-      a.click();
+    if (!canvasObj) {
+      alert('No 3D canvas found. Please load a model first.');
+      return;
     }
+    const a = document.createElement('a');
+    a.download = 'step-screenshot.png';
+    a.href = canvasObj.toDataURL('image/png');
+    a.click();
   };
 
   return (

@@ -9,7 +9,7 @@ import initOpenCascade from 'occt-import-js';
 
 // Cache the loaded WebAssembly module to prevent downloading/initializing 
 // the heavy WASM binary multiple times during the application lifecycle.
-import { OCCTInstance } from 'occt-import-js';
+import { OCCTInstance, OCCTResult } from 'occt-import-js';
 let occt: OCCTInstance | null = null;
 
 /**
@@ -55,25 +55,18 @@ export async function parseStepFile(file: File): Promise<ParsedPart[]> {
 
     // 3. Execute the heavy lifting: Parse the STEP file binary into a structured JSON/Mesh object
     // Passing 'null' as the second parameter here uses default tessellation tolerances.
-    interface OCCTResult {
-        meshes?: Array<{
-            name?: string;
-            attributes: {
-                position?: { array: Float32Array };
-                normal?: { array: Float32Array };
-            };
-            index?: { array: Uint32Array };
-            color?: [number, number, number];
-        }>;
+    const result: OCCTResult = occt.ReadStepFile(fileData, null);
+
+    if (!Array.isArray(result.meshes)) {
+        console.warn('STEP parser returned no meshes or unexpected structure. The file may be empty or unsupported.');
+        return [];
     }
-    const result = occt.ReadStepFile(fileData, null) as OCCTResult;
 
     const parts: ParsedPart[] = [];
 
     // 4. Transform the extracted flat arrays into Three.js BufferGeometries
-    if (result && result.meshes) {
-        for (let i = 0; i < result.meshes.length; i++) {
-            const meshData = result.meshes[i];
+    for (let i = 0; i < result.meshes.length; i++) {
+        const meshData = result.meshes[i];
             const geometry = new THREE.BufferGeometry();
 
             // Populate the Vertices (Positions)
@@ -115,7 +108,6 @@ export async function parseStepFile(file: File): Promise<ParsedPart[]> {
                 visible: true,
                 opacity: 1 // Default to fully opaque
             });
-        }
     }
 
     return parts;
