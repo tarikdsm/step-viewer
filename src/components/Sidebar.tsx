@@ -3,6 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2, Eye, EyeOff, Ruler, Grid, Camera, Hand, MousePointer2 } from "lucide-react";
 
+/**
+ * Data structure representing a previously uploaded STEP file
+ * retrievable from the server's local storage.
+ */
 export interface SavedFile {
     name: string;
     size: number;
@@ -10,6 +14,11 @@ export interface SavedFile {
     modifiedAt: string;
 }
 
+/**
+ * Props defining the extensive API surface of the Sidebar.
+ * The Sidebar acts as the primary controller for the application state,
+ * broadcasting user intents (like toggling modes or sliding values) up to `page.tsx`.
+ */
 interface SidebarProps {
     onFileUpload: (file: File) => void;
     explodedValue: number;
@@ -18,11 +27,11 @@ interface SidebarProps {
     onGlobalOpacityChange: (val: number) => void;
     measurementMode: boolean;
     onToggleMeasurementMode: () => void;
-    parts: any[];
-    selectedParts: string[];
+    parts: any[]; // The active list of parsed 3D components
+    selectedParts: string[]; // Array of currently highlighted part IDs
     onSelectPart: (id: string, selectMultiple?: boolean) => void;
     onGroupSelected: () => void;
-    onLoadSavedFile: (filename: string) => void;
+    onLoadSavedFile: (filename: string) => void; // Triggered when a historical file is clicked
     onTogglePartVisibility: (id: string) => void;
     onChangePartColor: (id: string, color: string) => void;
     wireframeMode: boolean;
@@ -34,6 +43,11 @@ interface SidebarProps {
     onToggleBoxSelectMode: () => void;
 }
 
+/**
+ * The Sidebar Component.
+ * Renders the left-hand control panel containing the file uploader,
+ * the list of server-saved files, the advanced interaction toggles, and the part hierarchy tree.
+ */
 export function Sidebar({
     onFileUpload,
     explodedValue,
@@ -57,10 +71,15 @@ export function Sidebar({
     boxSelectMode,
     onToggleBoxSelectMode,
 }: SidebarProps) {
+    // Internal UI States
     const [savedFiles, setSavedFiles] = useState<SavedFile[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isLoadingFiles, setIsLoadingFiles] = useState(true);
 
+    /**
+     * Polls the internal Next.js API route to retrieve the list of 
+     * STEP files previously uploaded to the server's local file system.
+     */
     const fetchFiles = async () => {
         setIsLoadingFiles(true);
         try {
@@ -76,28 +95,36 @@ export function Sidebar({
         }
     };
 
+    // Auto-fetch the file list when the Sidebar mounts
     useEffect(() => {
         fetchFiles();
     }, []);
 
+    /**
+     * Handles the native HTML file input event.
+     * Uploads the file to the local API server for persistence, then 
+     * immediately pipes it into the 3D Viewer for processing without a reload.
+     */
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
 
-            // Upload to server then pass to viewer
             setIsUploading(true);
+
+            // Package the file into a standard Multi-Part Form payload for the API
             const formData = new FormData();
             formData.append('file', file);
 
             try {
+                // Post to the Next.js App Router handler
                 const res = await fetch('/api/files', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (res.ok) {
-                    await fetchFiles(); // refresh list
-                    onFileUpload(file); // load immediately to viewer
+                    await fetchFiles(); // Refresh the visual list of saved files
+                    onFileUpload(file); // Trigger the React Three Fiber mount sequence in page.tsx
                 } else {
                     alert("Failed to upload file to server.");
                 }
@@ -106,21 +133,26 @@ export function Sidebar({
                 alert("Error uploading file.");
             } finally {
                 setIsUploading(false);
-                // Reset input so the same file can be uploaded again if needed
+                // Clear the input value so the browser allows selecting the exact same file again if desired
                 e.target.value = '';
             }
         }
     };
 
+    /**
+     * Deletes a specifically named file from the persistent server storage.
+     */
     const handleDeleteFile = async (filename: string) => {
+        // Prevent accidental clicks destroying user data
         if (!confirm(`Are you sure you want to delete ${filename}?`)) return;
 
         try {
+            // Target the DELETE endpoint using query parameters to identify the file
             const res = await fetch(`/api/files?name=${encodeURIComponent(filename)}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
-                await fetchFiles();
+                await fetchFiles(); // Refresh the list after successful deletion
             } else {
                 alert("Failed to delete file.");
             }

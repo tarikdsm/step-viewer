@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// Define the absolute path to the uploads directory relative to project root
+// Define the absolute path to the local generic 'uploads' directory relative to the Next.js project root
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
-// Helper to ensure the directory exists
+/**
+ * Utility function to verify if the configured uploads directory exists.
+ * If the folder has not been created yet (e.g., first run on a fresh clone), it automatically creates it 
+ * to prevent ENOENT crashes during file saves.
+ */
 async function ensureUploadsDir() {
     try {
         await fs.access(UPLOADS_DIR);
@@ -14,13 +18,18 @@ async function ensureUploadsDir() {
     }
 }
 
-// GET: List all saved files
+/**
+ * GET METHOD:
+ * Retrieves a list of all locally saved files.
+ * Provides metadata (file size, creation/modification dates) formatted cleanly for the Sidebar to render.
+ */
 export async function GET() {
     try {
         await ensureUploadsDir();
         const files = await fs.readdir(UPLOADS_DIR);
 
-        // Filter out .gitkeep and other non-step files if needed
+        // Secure filter: Ensure that random noise files (like .gitkeep or macOS .DS_Store) 
+        // are excluded. The route only serves valid STEP geometries to the React client.
         const validFiles = files.filter(f => f.toLowerCase().endsWith('.step') || f.toLowerCase().endsWith('.stp'));
 
         // Get file stats (size, modified date)
@@ -37,7 +46,7 @@ export async function GET() {
             })
         );
 
-        // Sort by newest first
+        // Sort by the newest modifications descending so the most recently uploaded files appear at the top of the Sidebar list
         fileDetails.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
 
         return NextResponse.json({ files: fileDetails });
@@ -47,7 +56,11 @@ export async function GET() {
     }
 }
 
-// POST: Upload a new file
+/**
+ * POST METHOD:
+ * Accepts a standard multi-part form data upload from the client.
+ * Normalizes the filename and saves it persistently to the server's disk, ensuring uniqueness through a timestamp tag.
+ */
 export async function POST(request: Request) {
     try {
         await ensureUploadsDir();
@@ -60,7 +73,8 @@ export async function POST(request: Request) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Add timestamp to filename to prevent overwriting
+        // Anti-collision logic: Modify filename to embed a discrete timestamp value so 
+        // two users uploading "test_part.step" won't overwrite each other's native geometries
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const timestamp = Date.now();
         const baseName = safeName.substring(0, safeName.lastIndexOf('.'));
@@ -81,7 +95,10 @@ export async function POST(request: Request) {
     }
 }
 
-// DELETE: Remove a saved file
+/**
+ * DELETE METHOD:
+ * Securely deletes a specific file physically matching a string parameter from the filesystem.
+ */
 export async function DELETE(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -91,7 +108,9 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: "Filename is required parameter" }, { status: 400 });
         }
 
-        // Prevent directory traversal
+        // Critical Security: Parse `path.basename` exclusively.
+        // This stops malicious users from executing Directory Traversal attacks (ex: "../../etc/passwd") 
+        // through corrupted API payloads ensuring it only ever reads filenames strictly within /uploads
         const safeFilename = path.basename(filename);
         const filePath = path.join(UPLOADS_DIR, safeFilename);
 
