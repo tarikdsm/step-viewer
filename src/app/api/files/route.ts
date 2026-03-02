@@ -71,14 +71,24 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
+        const MAX_SIZE_MB = 100;
+        if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+            return NextResponse.json({ error: `File size exceeds ${MAX_SIZE_MB}MB limit` }, { status: 400 });
+        }
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const extension = safeName.substring(safeName.lastIndexOf('.')).toLowerCase();
+
+        if (extension !== '.step' && extension !== '.stp' && file.type !== 'model/step') {
+            return NextResponse.json({ error: "Invalid file type. Only .step or .stp are allowed." }, { status: 400 });
+        }
+
         const buffer = Buffer.from(await file.arrayBuffer());
 
         // Anti-collision logic: Modify filename to embed a discrete timestamp value so 
         // two users uploading "test_part.step" won't overwrite each other's native geometries
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const timestamp = Date.now();
         const baseName = safeName.substring(0, safeName.lastIndexOf('.'));
-        const extension = safeName.substring(safeName.lastIndexOf('.'));
         const finalName = `${baseName}_${timestamp}${extension}`;
 
         const filePath = path.join(UPLOADS_DIR, finalName);
@@ -116,8 +126,8 @@ export async function DELETE(request: Request) {
 
         await fs.unlink(filePath);
         return NextResponse.json({ success: true, message: "File deleted successfully" });
-    } catch (error: any) {
-        if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+        if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
             return NextResponse.json({ error: "File not found" }, { status: 404 });
         }
         console.error("DELETE /api/files error:", error);

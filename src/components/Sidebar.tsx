@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2, Eye, EyeOff, Ruler, Grid, Camera, Hand, MousePointer2 } from "lucide-react";
+import { ParsedPart } from "@/lib/stepParser";
 
 /**
  * Data structure representing a previously uploaded STEP file
@@ -27,7 +28,7 @@ interface SidebarProps {
     onGlobalOpacityChange: (val: number) => void;
     measurementMode: boolean;
     onToggleMeasurementMode: () => void;
-    parts: any[]; // The active list of parsed 3D components
+    parts: ParsedPart[]; // The active list of parsed 3D components
     selectedParts: string[]; // Array of currently highlighted part IDs
     onSelectPart: (id: string, selectMultiple?: boolean) => void;
     onGroupSelected: () => void;

@@ -9,7 +9,8 @@ import initOpenCascade from 'occt-import-js';
 
 // Cache the loaded WebAssembly module to prevent downloading/initializing 
 // the heavy WASM binary multiple times during the application lifecycle.
-let occt: any = null;
+import { OCCTInstance } from 'occt-import-js';
+let occt: OCCTInstance | null = null;
 
 /**
  * Interface defining the structure of a successfully parsed 3D part.
@@ -54,7 +55,18 @@ export async function parseStepFile(file: File): Promise<ParsedPart[]> {
 
     // 3. Execute the heavy lifting: Parse the STEP file binary into a structured JSON/Mesh object
     // Passing 'null' as the second parameter here uses default tessellation tolerances.
-    const result = occt.ReadStepFile(fileData, null);
+    interface OCCTResult {
+        meshes?: Array<{
+            name?: string;
+            attributes: {
+                position?: { array: Float32Array };
+                normal?: { array: Float32Array };
+            };
+            index?: { array: Uint32Array };
+            color?: [number, number, number];
+        }>;
+    }
+    const result = occt.ReadStepFile(fileData, null) as OCCTResult;
 
     const parts: ParsedPart[] = [];
 

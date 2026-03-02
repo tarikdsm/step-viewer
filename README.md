@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# STEP Viewer
+
+A fast, client-side web application for loading and visualizing 3D `.step` and `.stp` CAD models directly in your browser. Built with **Next.js**, **React Three Fiber (Three.js)**, and **OpenCascade WASM** (`occt-import-js`).
+
+## Features
+
+- ⚡ **Client-Side Parsing**: Parses complex STEP geometries directly in the browser via WebAssembly without relying on slow server conversions.
+- 🎨 **Visual Tweaks**: Change part colors, individual visibilities, global opacity, and wireframe modes on the fly.
+- 💥 **Exploded Views**: Dynamically slide parts apart from the center of the model (or grouped centers) to inspect internal assemblies.
+- 📏 **Measurements**: Click pairs of points on the mesh to calculate millimeter distances in true 3D space.
+- 📦 **Grouping & Selection**: Box-select multiple parts or Ctrl-click to bundle components into unified groups that move/explode together.
+- 💾 **Local Storage**: Uploaded files are cached locally for immediate reloading on subsequent visits.
 
 ## Getting Started
 
-First, run the development server:
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
+2. **Run the Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Known Limitations
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Performance**: Extremely large assemblies (100MB+) or parts with millions of polygons may cause memory warnings or lag depending on your hardware's WebGL capabilities.
+- **WASM Init Delay**: The very first parse takes an extra ~1-2 seconds as the browser downloads and initializes the `occt-import-js` WebAssembly engine block.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Technologies Used
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js (App Router)](https://nextjs.org/)
+- [Three.js](https://threejs.org/) & [React Three Fiber](https://docs.pmnd.rs/react-three-fiber/)
+- [occt-import-js](https://github.com/kovacsv/occt-import-js)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Lucide React](https://lucide.dev/)

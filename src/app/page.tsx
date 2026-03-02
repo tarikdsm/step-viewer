@@ -28,6 +28,10 @@ export default function Home() {
    * and prepares the pipeline for the new geometry payload.
    */
   const handleFileUpload = (uploadedFile: File) => {
+    // Dispose old geometries to clear GPU memory
+    parts.forEach(p => {
+      if (p.geometry) p.geometry.dispose();
+    });
     setFile(uploadedFile);
     setParts([]);
     setSelectedParts([]);

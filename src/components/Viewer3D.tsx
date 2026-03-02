@@ -51,7 +51,7 @@ function PartMesh({
     wireframeMode: boolean,
     dragMode: boolean,
     selectedParts: string[],
-    onPointerDown: (e: any) => void
+    onPointerDown: (e: import('@react-three/fiber').ThreeEvent<PointerEvent>) => void
 }) {
     const isSelected = selectedParts && selectedParts.includes(part.id);
 
@@ -60,8 +60,9 @@ function PartMesh({
 
     // If the slider is active, calculate the geometric displacement
     if (explodedValue > 0) {
-        // Calculate a directional vector from the center of the entire model pointing towards this part's center
-        const direction = new THREE.Vector3().subVectors(part.center, modelCenter);
+        // Calculate a directional vector. If part is in a group and group is selected, it uses groupCenter to explode collectively
+        const refCenter = isGroupSelected && groupCenter ? groupCenter : part.center;
+        const direction = new THREE.Vector3().subVectors(refCenter, modelCenter);
         const len = direction.length();
         if (len > 0.001) {
             direction.normalize();
@@ -111,7 +112,18 @@ function PartMesh({
  * and performs the complex math of projecting 3D object coordinates into 2D screen space
  * to determine which parts fall inside the dragged rectangle.
  */
-function BoxSelectionManager({ boxSelectMode, parts, setBoxRect, onSelectMultipleParts, explodedValue, modelCenter }: any) {
+interface BoxProps {
+    boxSelectMode: boolean;
+    parts: ParsedPart[];
+    setBoxRect: (rect: { x: number, y: number, w: number, h: number } | null) => void;
+    onSelectMultipleParts: (ids: string[]) => void;
+    explodedValue: number;
+    modelCenter: THREE.Vector3;
+    groupCenters: Record<string, THREE.Vector3>;
+    selectedParts: string[];
+}
+
+function BoxSelectionManager({ boxSelectMode, parts, setBoxRect, onSelectMultipleParts, explodedValue, modelCenter, groupCenters, selectedParts }: BoxProps) {
     // Access the raw Three.js camera and WebGL context
     const { camera, gl } = useThree();
 
@@ -176,7 +188,9 @@ function BoxSelectionManager({ boxSelectMode, parts, setBoxRect, onSelectMultipl
                 // We must account for any artificial offset applied by the Exploded View slider
                 let offset = new THREE.Vector3(0, 0, 0);
                 if (explodedValue > 0) {
-                    const dir = new THREE.Vector3().subVectors(p.center, modelCenter);
+                    const isGroupSelected = selectedParts.length > 0 && (selectedParts.includes(p.id) || (p.groupId && parts.some(g => g.groupId === p.groupId && selectedParts.includes(g.id))));
+                    const refCenter = isGroupSelected && p.groupId && groupCenters[p.groupId] ? groupCenters[p.groupId] : p.center;
+                    const dir = new THREE.Vector3().subVectors(refCenter, modelCenter);
                     const len = dir.length();
                     if (len > 0.001) {
                         dir.normalize();
@@ -220,7 +234,7 @@ function BoxSelectionManager({ boxSelectMode, parts, setBoxRect, onSelectMultipl
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
         };
-    }, [boxSelectMode, parts, camera, gl.domElement, onSelectMultipleParts, explodedValue, modelCenter, setBoxRect]);
+    }, [boxSelectMode, parts, camera, gl.domElement, onSelectMultipleParts, explodedValue, modelCenter, setBoxRect, groupCenters, selectedParts]);
 
     return null;
 }
@@ -273,7 +287,7 @@ export function Viewer3D({ file, explodedValue, globalOpacity, measurementMode, 
     }, [measurementMode]);
 
     // Handle clicks directly on the 3D meshes for generating points in the 3D space
-    const handlePointerDown = (e: any) => {
+    const handlePointerDown = (e: import('@react-three/fiber').ThreeEvent<PointerEvent>) => {
         if (!measurementMode) return;
         // Stop the event from penetrating through to meshes behind the clicked one
         e.stopPropagation();
@@ -445,6 +459,8 @@ export function Viewer3D({ file, explodedValue, globalOpacity, measurementMode, 
                     onSelectMultipleParts={onSelectMultipleParts}
                     explodedValue={explodedValue}
                     modelCenter={modelCenter}
+                    groupCenters={groupCenters}
+                    selectedParts={selectedParts}
                 />
             </Canvas>
         </div>

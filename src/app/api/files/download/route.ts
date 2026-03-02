@@ -39,8 +39,8 @@ export async function GET(request: Request) {
                     'Content-Length': stats.size.toString()
                 }
             });
-        } catch (e: any) {
-            if (e.code === 'ENOENT') {
+        } catch (e: unknown) {
+            if (e instanceof Error && (e as NodeJS.ErrnoException).code === 'ENOENT') {
                 return new NextResponse("File not found", { status: 404 });
             }
             throw e;
