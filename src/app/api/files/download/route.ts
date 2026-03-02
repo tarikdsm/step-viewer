@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
+import { createReadStream } from 'fs';
 import path from 'path';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
@@ -25,14 +26,24 @@ export async function GET(request: Request) {
         const filePath = path.join(UPLOADS_DIR, safeFilename);
 
         try {
-            // Check if file exists and get stats
+            // Check if file exists and get its size for the Content-Length header
             const stats = await fs.stat(filePath);
 
-            // Read the file off the disk fully into an isolated binary buffer mapping
-            const fileBuffer = await fs.readFile(filePath);
+            // Stream the file instead of loading it entirely into memory.
+            // This is critical for large STEP files (up to 100MB) to avoid server memory spikes.
+            const nodeStream = createReadStream(filePath);
+            const webStream = new ReadableStream({
+                start(controller) {
+                    nodeStream.on('data', (chunk: string | Buffer) => controller.enqueue(new Uint8Array(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))));
+                    nodeStream.on('end', () => controller.close());
+                    nodeStream.on('error', (err: Error) => controller.error(err));
+                },
+                cancel() {
+                    nodeStream.destroy();
+                }
+            });
 
-            // Respond directly using raw blob bytes alongside strict HTTP headers identifying correct lengths and the file attachment behavior
-            return new NextResponse(fileBuffer, {
+            return new NextResponse(webStream, {
                 headers: {
                     'Content-Type': 'application/octet-stream',
                     'Content-Disposition': `attachment; filename="${safeFilename}"`,

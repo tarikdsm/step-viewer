@@ -76,6 +76,7 @@ export function Sidebar({
     const [savedFiles, setSavedFiles] = useState<SavedFile[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isLoadingFiles, setIsLoadingFiles] = useState(true);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const isMountedRef = useRef(false);
 
     /**
@@ -156,24 +157,30 @@ export function Sidebar({
     };
 
     /**
-     * Deletes a specifically named file from the persistent server storage.
+     * Stages a file for deletion by setting deleteTarget, which renders the inline confirmation UI.
      */
-    const handleDeleteFile = async (filename: string) => {
-        // Prevent accidental clicks destroying user data
-        if (!confirm(`Are you sure you want to delete ${filename}?`)) return;
+    const handleDeleteFile = (filename: string) => {
+        setDeleteTarget(filename);
+    };
 
+    /**
+     * Executes the confirmed deletion after the user approves the inline prompt.
+     */
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         try {
-            // Target the DELETE endpoint using query parameters to identify the file
-            const res = await fetch(`/api/files?name=${encodeURIComponent(filename)}`, {
+            const res = await fetch(`/api/files?name=${encodeURIComponent(deleteTarget)}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
-                await fetchFiles(); // Refresh the list after successful deletion
+                await fetchFiles();
             } else {
                 alert("Failed to delete file.");
             }
         } catch (err) {
             console.error("Delete error", err);
+        } finally {
+            setDeleteTarget(null);
         }
     };
 
@@ -244,6 +251,16 @@ export function Sidebar({
                             ))}
                         </ul>
                     )}
+
+                    {deleteTarget && (
+                        <div className="mt-2 p-2 bg-red-950/50 border border-red-700 rounded-md text-xs">
+                            <p className="text-red-300 mb-2 truncate">Delete <span className="font-medium">{deleteTarget}</span>?</p>
+                            <div className="flex gap-2">
+                                <button onClick={confirmDelete} className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded">Delete</button>
+                                <button onClick={() => setDeleteTarget(null)} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded">Cancel</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -269,7 +286,7 @@ export function Sidebar({
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <label className="text-sm font-semibold text-slate-300 flex items-center gap-2" title="Global transparency for inner inspection">
-                            Transparência
+                            Transparency
                         </label>
                         <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{Math.round((1 - globalOpacity) * 100)}%</span>
                     </div>
@@ -288,28 +305,28 @@ export function Sidebar({
                         onClick={onToggleMeasurementMode}
                         className={`flex-1 flex items-center justify-center flex-col gap-1 py-2 px-1 rounded-lg cursor-pointer transition-colors text-[10px] font-medium border
                             ${measurementMode ? 'bg-amber-600/20 text-amber-400 border-amber-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
-                        title="Medição Ativa (Clique em 2 pontos)"
+                        title="Measurement Mode (Click 2 points)"
                     >
                         <Ruler size={14} />
-                        Medidas
+                        Measure
                     </button>
                     <button
                         onClick={onToggleDragMode}
                         className={`flex-1 flex items-center justify-center flex-col gap-1 py-2 px-1 rounded-lg cursor-pointer transition-colors text-[10px] font-medium border
                             ${dragMode ? 'bg-purple-600/20 text-purple-400 border-purple-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
-                        title="Mover Peças Livremente"
+                        title="Free Move Mode"
                     >
                         <Hand size={14} />
-                        Mover
+                        Move
                     </button>
                     <button
                         onClick={onToggleBoxSelectMode}
                         className={`flex-1 flex items-center justify-center flex-col gap-1 py-2 px-1 rounded-lg cursor-pointer transition-colors text-[10px] font-medium border
                             ${boxSelectMode ? 'bg-green-600/20 text-green-400 border-green-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
-                        title="Seleção de Área"
+                        title="Area Selection Mode"
                     >
                         <MousePointer2 size={14} />
-                        Área
+                        Area
                     </button>
                 </div>
 
@@ -318,18 +335,18 @@ export function Sidebar({
                         onClick={onToggleWireframe}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg cursor-pointer transition-colors text-xs font-medium border
                             ${wireframeMode ? 'bg-blue-600/20 text-blue-400 border-blue-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
-                        title="Alternar Modo Aramado"
+                        title="Toggle Wireframe Mode"
                     >
                         <Grid size={14} />
-                        Aramado
+                        Wireframe
                     </button>
                     <button
                         onClick={onScreenshot}
                         className="flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg cursor-pointer transition-colors text-xs font-medium border bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
-                        title="Baixar Imagem"
+                        title="Download Screenshot"
                     >
                         <Camera size={14} />
-                        Captura
+                        Capture
                     </button>
                 </div>
             </div>

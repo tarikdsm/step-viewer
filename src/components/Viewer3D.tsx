@@ -24,6 +24,24 @@ interface Viewer3DProps {
 }
 
 /**
+ * Computes the displacement offset for the Exploded View feature.
+ * Extracted as a shared utility to avoid duplication between PartMesh and BoxSelectionManager.
+ */
+function computeExplodedOffset(
+    explodedValue: number,
+    center: THREE.Vector3,
+    modelCenter: THREE.Vector3,
+    refCenter?: THREE.Vector3
+): THREE.Vector3 {
+    if (explodedValue <= 0) return new THREE.Vector3();
+    const direction = new THREE.Vector3().subVectors(refCenter ?? center, modelCenter);
+    const len = direction.length();
+    if (len <= 0.001) return new THREE.Vector3();
+    direction.normalize();
+    return direction.multiplyScalar(len * (explodedValue / 100) * 3);
+}
+
+/**
  * Represents a single distinct 3D geometry in the Canvas.
  * It handles its own visual state (color, wireframe, dragging) and dynamically
  * calculates its position offset if the Exploded View slider is active.
@@ -55,21 +73,9 @@ function PartMesh({
 }) {
     const isSelected = selectedParts && selectedParts.includes(part.id);
 
-    // Vector representing how far this specific part has moved from its origin
-    let offset = new THREE.Vector3(0, 0, 0);
-
-    // If the slider is active, calculate the geometric displacement
-    if (explodedValue > 0) {
-        // Calculate a directional vector. If part is in a group and group is selected, it uses groupCenter to explode collectively
-        const refCenter = isGroupSelected && groupCenter ? groupCenter : part.center;
-        const direction = new THREE.Vector3().subVectors(refCenter, modelCenter);
-        const len = direction.length();
-        if (len > 0.001) {
-            direction.normalize();
-            // We multiply by 3 to create a satisfying visual separation that scales naturally with the model's dimensions
-            offset = direction.clone().multiplyScalar(len * (explodedValue / 100) * 3);
-        }
-    }
+    // If part is in a group and group is selected, it explodes collectively using the group center
+    const refCenter = isGroupSelected && groupCenter ? groupCenter : undefined;
+    const offset = computeExplodedOffset(explodedValue, part.center, modelCenter, refCenter);
 
     // Determine the final rendering color, prioritizing user overrides over the STEP file's native color
     const displayColor = part.customColor ? new THREE.Color(part.customColor) : part.color;
@@ -186,17 +192,12 @@ function BoxSelectionManager({ boxSelectMode, parts, setBoxRect, onSelectMultipl
 
                 // --- Step A: Calculate the true 3D position ---
                 // We must account for any artificial offset applied by the Exploded View slider
-                let offset = new THREE.Vector3(0, 0, 0);
-                if (explodedValue > 0) {
-                    const isGroupSelected = selectedParts.length > 0 && (selectedParts.includes(p.id) || (p.groupId && parts.some(g => g.groupId === p.groupId && selectedParts.includes(g.id))));
-                    const refCenter = isGroupSelected && p.groupId && groupCenters[p.groupId] ? groupCenters[p.groupId] : p.center;
-                    const dir = new THREE.Vector3().subVectors(refCenter, modelCenter);
-                    const len = dir.length();
-                    if (len > 0.001) {
-                        dir.normalize();
-                        offset = dir.clone().multiplyScalar(len * (explodedValue / 100) * 3);
-                    }
-                }
+                const isGroupSelected = selectedParts.length > 0 && (
+                    selectedParts.includes(p.id) ||
+                    (p.groupId !== undefined && parts.some(g => g.groupId === p.groupId && selectedParts.includes(g.id)))
+                );
+                const refCenter = isGroupSelected && p.groupId && groupCenters[p.groupId] ? groupCenters[p.groupId] : undefined;
+                const offset = computeExplodedOffset(explodedValue, p.center, modelCenter, refCenter);
                 const currentPos = p.center.clone().add(offset);
 
                 // --- Step B: 3D to 2D Frustum Projection ---
@@ -225,9 +226,10 @@ function BoxSelectionManager({ boxSelectMode, parts, setBoxRect, onSelectMultipl
         };
 
         // Attach listeners directly to the DOM to intercept them cleanly without React SyntheticEvents noise
+        // passive: true allows the browser to optimize scroll performance since we never call preventDefault()
         dom.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+        window.addEventListener('pointerup', onPointerUp, { passive: true });
 
         return () => {
             dom.removeEventListener('pointerdown', onPointerDown);
