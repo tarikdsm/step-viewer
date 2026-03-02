@@ -13,10 +13,25 @@ export default function Home() {
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
-    // Reset state on new file upload
     setParts([]);
     setSelectedParts([]);
     setExplodedValue(0);
+  };
+
+  const handleLoadSavedFile = async (filename: string) => {
+    try {
+      const res = await fetch(`/api/files/download?name=${encodeURIComponent(filename)}`);
+      if (!res.ok) throw new Error("Failed to download");
+
+      const blob = await res.blob();
+      // Mocking a File object from the Blob to pass to our existing stepParser logic
+      const downloadedFile = new File([blob], filename, { type: 'application/octet-stream' });
+
+      handleFileUpload(downloadedFile);
+    } catch (err) {
+      console.error("Error loading saved file:", err);
+      alert("Failed to load saved file");
+    }
   };
 
   const handleSelectPart = (id: string) => {
@@ -49,6 +64,7 @@ export default function Home() {
         selectedParts={selectedParts}
         onSelectPart={handleSelectPart}
         onGroupSelected={handleGroupSelected}
+        onLoadSavedFile={handleLoadSavedFile}
       />
       <Viewer3D
         file={file}
