@@ -10,6 +10,9 @@ export interface ParsedPart {
     geometry: THREE.BufferGeometry;
     color: THREE.Color;
     center: THREE.Vector3;
+    visible: boolean;
+    opacity: number;
+    customColor?: string;
 }
 
 export async function parseStepFile(file: File): Promise<ParsedPart[]> {
@@ -63,6 +66,8 @@ export async function parseStepFile(file: File): Promise<ParsedPart[]> {
                 geometry,
                 color,
                 center,
+                visible: true,
+                opacity: 1
             });
         }
     }

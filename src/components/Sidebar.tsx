@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2 } from "lucide-react";
+import { Upload, SlidersHorizontal, Layers, FolderOpen, Trash2, CloudDownload, Loader2, Eye, EyeOff, Ruler } from "lucide-react";
 
 export interface SavedFile {
     name: string;
@@ -14,22 +14,34 @@ interface SidebarProps {
     onFileUpload: (file: File) => void;
     explodedValue: number;
     onExplodedChange: (val: number) => void;
+    globalOpacity: number;
+    onGlobalOpacityChange: (val: number) => void;
+    measurementMode: boolean;
+    onToggleMeasurementMode: () => void;
     parts: any[];
     selectedParts: string[];
-    onSelectPart: (id: string) => void;
+    onSelectPart: (id: string, selectMultiple?: boolean) => void;
     onGroupSelected: () => void;
     onLoadSavedFile: (filename: string) => void;
+    onTogglePartVisibility: (id: string) => void;
+    onChangePartColor: (id: string, color: string) => void;
 }
 
 export function Sidebar({
     onFileUpload,
     explodedValue,
     onExplodedChange,
+    globalOpacity,
+    onGlobalOpacityChange,
+    measurementMode,
+    onToggleMeasurementMode,
     parts,
     selectedParts,
     onSelectPart,
     onGroupSelected,
     onLoadSavedFile,
+    onTogglePartVisibility,
+    onChangePartColor,
 }: SidebarProps) {
     const [savedFiles, setSavedFiles] = useState<SavedFile[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -173,22 +185,50 @@ export function Sidebar({
                 </div>
             </div>
 
-            <div className="p-6 border-b border-slate-700 shrink-0">
-                <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <SlidersHorizontal size={16} />
-                        Exploded View
-                    </label>
-                    <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{explodedValue}%</span>
+            <div className="p-6 border-b border-slate-700 shrink-0 space-y-4">
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                            <SlidersHorizontal size={16} />
+                            Exploded View
+                        </label>
+                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{explodedValue}%</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={explodedValue}
+                        onChange={(e) => onExplodedChange(Number(e.target.value))}
+                        className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    />
                 </div>
-                <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={explodedValue}
-                    onChange={(e) => onExplodedChange(Number(e.target.value))}
-                    className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                />
+
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-semibold text-slate-300 flex items-center gap-2" title="Global opacity for inner inspection">
+                            Opacidade (Raio-X)
+                        </label>
+                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{Math.round(globalOpacity * 100)}%</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        value={globalOpacity * 100}
+                        onChange={(e) => onGlobalOpacityChange(Number(e.target.value) / 100)}
+                        className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    />
+                </div>
+
+                <button
+                    onClick={onToggleMeasurementMode}
+                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg cursor-pointer transition-colors font-medium border
+                        ${measurementMode ? 'bg-amber-600/20 text-amber-400 border-amber-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+                >
+                    <Ruler size={16} />
+                    {measurementMode ? "Medição Ativa (Clique em 2 pontos)" : "Modo de Medição"}
+                </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
@@ -215,12 +255,33 @@ export function Sidebar({
                             return (
                                 <li
                                     key={partId}
-                                    onClick={() => onSelectPart(partId)}
-                                    className={`px-3 py-2 rounded cursor-pointer text-sm truncate select-none transition-colors
-                    ${isSelected ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'hover:bg-slate-800 text-slate-300 border border-transparent'}
-                  `}
+                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-sm transition-colors
+                                      ${isSelected ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'hover:bg-slate-800 text-slate-300 border border-transparent'}
+                                    `}
                                 >
-                                    {part.name || `Part ${index + 1}`}
+                                    <div
+                                        className="truncate flex-1 cursor-pointer select-none"
+                                        onClick={(e) => onSelectPart(partId, e.ctrlKey || e.metaKey)}
+                                    >
+                                        {part.name || `Part ${index + 1}`}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 ml-2">
+                                        <input
+                                            type="color"
+                                            title="Change part color"
+                                            value={part.customColor || `#${part.color.getHexString()}`}
+                                            onChange={(e) => onChangePartColor(partId, e.target.value)}
+                                            className="w-5 h-5 rounded cursor-pointer shrink-0 border-0 bg-transparent p-0"
+                                        />
+                                        <button
+                                            onClick={() => onTogglePartVisibility(partId)}
+                                            className={`p-1 rounded shrink-0 transition-colors ${part.visible ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-400'}`}
+                                            title={part.visible ? "Hide part" : "Show part"}
+                                        >
+                                            {part.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        </button>
+                                    </div>
                                 </li>
                             );
                         })}

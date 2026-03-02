@@ -20,9 +20,12 @@ export async function GET() {
         await ensureUploadsDir();
         const files = await fs.readdir(UPLOADS_DIR);
 
+        // Filter out .gitkeep and other non-step files if needed
+        const validFiles = files.filter(f => f.toLowerCase().endsWith('.step') || f.toLowerCase().endsWith('.stp'));
+
         // Get file stats (size, modified date)
         const fileDetails = await Promise.all(
-            files.map(async (filename) => {
+            validFiles.map(async (filename) => {
                 const filePath = path.join(UPLOADS_DIR, filename);
                 const stats = await fs.stat(filePath);
                 return {

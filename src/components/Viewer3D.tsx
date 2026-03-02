@@ -9,33 +9,69 @@ import { parseStepFile, ParsedPart } from "@/lib/stepParser";
 interface Viewer3DProps {
     file: File | null;
     explodedValue: number;
+    globalOpacity: number;
+    measurementMode: boolean;
     parts: ParsedPart[];
     selectedParts: string[];
     onPartsParsed: (parts: ParsedPart[]) => void;
 }
 
-function PartMesh({ part, explodedValue, isSelected, modelCenter, groupCenter }: { part: ParsedPart, explodedValue: number, isSelected: boolean, modelCenter: THREE.Vector3, groupCenter?: THREE.Vector3 }) {
+function PartMesh({
+    part,
+    explodedValue,
+    isSelected,
+    isGroupSelected,
+    modelCenter,
+    groupCenter,
+    globalOpacity,
+    measurementMode,
+    onPointerDown
+}: {
+    part: ParsedPart,
+    explodedValue: number,
+    isSelected: boolean,
+    isGroupSelected: boolean,
+    modelCenter: THREE.Vector3,
+    groupCenter?: THREE.Vector3,
+    globalOpacity: number,
+    measurementMode: boolean,
+    onPointerDown: (e: any) => void
+}) {
+    // If it's part of a selected group, or explicitly selected, it stays at origin/center.
+    // Otherwise, explode it outwards.
     const referenceCenter = groupCenter || part.center;
-    const direction = new THREE.Vector3().subVectors(referenceCenter, modelCenter).normalize();
-    const offset = direction.clone().multiplyScalar((explodedValue / 100) * 50); // max 50 units explode
+    let offset = new THREE.Vector3(0, 0, 0);
+
+    if (!isGroupSelected && !isSelected) {
+        const direction = new THREE.Vector3().subVectors(referenceCenter, modelCenter).normalize();
+        offset = direction.clone().multiplyScalar((explodedValue / 100) * 50); // max 50 units explode
+    }
+
+    const displayColor = part.customColor ? new THREE.Color(part.customColor) : part.color;
+    const finalOpacity = part.opacity * globalOpacity;
 
     return (
-        <mesh position={offset}>
+        <mesh position={offset} visible={part.visible} onClick={measurementMode ? onPointerDown : undefined}>
             <primitive object={part.geometry} attach="geometry" />
             <meshStandardMaterial
-                color={isSelected ? '#3b82f6' : part.color}
+                color={isSelected ? '#3b82f6' : displayColor}
                 roughness={0.4}
                 metalness={0.6}
                 emissive={isSelected ? new THREE.Color('#1e40af') : new THREE.Color(0x000000)}
                 emissiveIntensity={isSelected ? 0.3 : 0}
+                transparent={finalOpacity < 1}
+                opacity={finalOpacity}
             />
         </mesh>
     );
 }
 
-export function Viewer3D({ file, explodedValue, parts, selectedParts, onPartsParsed }: Viewer3DProps) {
+import { Html, Line } from "@react-three/drei";
+
+export function Viewer3D({ file, explodedValue, globalOpacity, measurementMode, parts, selectedParts, onPartsParsed }: Viewer3DProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [measurePoints, setMeasurePoints] = useState<THREE.Vector3[]>([]);
 
     useEffect(() => {
         if (!file) return;
@@ -61,6 +97,28 @@ export function Viewer3D({ file, explodedValue, parts, selectedParts, onPartsPar
 
         return () => { isMounted = false; };
     }, [file, onPartsParsed]);
+
+    useEffect(() => {
+        if (!measurementMode) setMeasurePoints([]);
+    }, [measurementMode]);
+
+    const handlePointerDown = (e: any) => {
+        if (!measurementMode) return;
+        e.stopPropagation();
+
+        const pt = e.point.clone();
+        setMeasurePoints(prev => {
+            if (prev.length >= 2) return [pt];
+            return [...prev, pt];
+        });
+    };
+
+    let measurementDistance = 0;
+    let measurementMidpoint = new THREE.Vector3();
+    if (measurePoints.length === 2) {
+        measurementDistance = measurePoints[0].distanceTo(measurePoints[1]);
+        measurementMidpoint = new THREE.Vector3().addVectors(measurePoints[0], measurePoints[1]).multiplyScalar(0.5);
+    }
 
     const modelCenter = useMemo(() => {
         if (parts.length === 0) return new THREE.Vector3(0, 0, 0);
@@ -88,6 +146,14 @@ export function Viewer3D({ file, explodedValue, parts, selectedParts, onPartsPar
         });
         return centers;
     }, [parts]);
+
+    // Check if a part belongs to a group that has at least one selected item
+    // or if the group itself is considered "selected" because it was formed.
+    const isPartInSelectedGroup = (part: ParsedPart) => {
+        if (!part.groupId) return false;
+        // If any part in this same group is in the selectedParts array
+        return parts.some(p => p.groupId === part.groupId && selectedParts.includes(p.id));
+    };
 
     return (
         <div className="flex-1 w-full h-full relative bg-[#1e293b]">
@@ -128,10 +194,40 @@ export function Viewer3D({ file, explodedValue, parts, selectedParts, onPartsPar
                                     part={part}
                                     explodedValue={explodedValue}
                                     isSelected={selectedParts.includes(part.id)}
+                                    isGroupSelected={isPartInSelectedGroup(part)}
                                     modelCenter={modelCenter}
                                     groupCenter={part.groupId ? groupCenters[part.groupId] : undefined}
+                                    globalOpacity={globalOpacity}
+                                    measurementMode={measurementMode}
+                                    onPointerDown={handlePointerDown}
                                 />
                             ))}
+
+                            {measurePoints.length > 0 && (
+                                <group>
+                                    {measurePoints.map((pt, idx) => (
+                                        <mesh key={idx} position={pt}>
+                                            <sphereGeometry args={[1, 16, 16]} />
+                                            <meshBasicMaterial color="yellow" depthTest={false} />
+                                        </mesh>
+                                    ))}
+                                    {measurePoints.length === 2 && (
+                                        <>
+                                            <Line
+                                                points={[measurePoints[0], measurePoints[1]]}
+                                                color="yellow"
+                                                lineWidth={3}
+                                                depthTest={false}
+                                            />
+                                            <Html position={measurementMidpoint} center>
+                                                <div className="bg-slate-900 border border-yellow-500 text-yellow-400 font-mono px-2 py-1 rounded shadow-lg whitespace-nowrap text-sm ml-4 -mt-4 z-50 pointer-events-none">
+                                                    {measurementDistance.toFixed(2)} mm
+                                                </div>
+                                            </Html>
+                                        </>
+                                    )}
+                                </group>
+                            )}
                         </group>
                     </Stage>
                 )}

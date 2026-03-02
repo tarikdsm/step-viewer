@@ -8,6 +8,8 @@ import { ParsedPart } from "@/lib/stepParser";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [explodedValue, setExplodedValue] = useState<number>(0);
+  const [globalOpacity, setGlobalOpacity] = useState<number>(1);
+  const [measurementMode, setMeasurementMode] = useState<boolean>(false);
   const [parts, setParts] = useState<ParsedPart[]>([]);
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
 
@@ -16,6 +18,8 @@ export default function Home() {
     setParts([]);
     setSelectedParts([]);
     setExplodedValue(0);
+    setGlobalOpacity(1);
+    setMeasurementMode(false);
   };
 
   const handleLoadSavedFile = async (filename: string) => {
@@ -34,12 +38,21 @@ export default function Home() {
     }
   };
 
-  const handleSelectPart = (id: string) => {
-    setSelectedParts(prev =>
-      prev.includes(id)
-        ? prev.filter(p => p !== id)
-        : [...prev, id]
-    );
+  const handleSelectPart = (id: string, selectMultiple: boolean = false) => {
+    setSelectedParts(prev => {
+      if (selectMultiple) {
+        return prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      }
+      return prev.includes(id) && prev.length === 1 ? [] : [id];
+    });
+  };
+
+  const handleTogglePartVisibility = (id: string) => {
+    setParts(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p));
+  };
+
+  const handleChangePartColor = (id: string, color: string) => {
+    setParts(prev => prev.map(p => p.id === id ? { ...p, customColor: color } : p));
   };
 
   const handleGroupSelected = () => {
@@ -60,15 +73,23 @@ export default function Home() {
         onFileUpload={handleFileUpload}
         explodedValue={explodedValue}
         onExplodedChange={setExplodedValue}
+        globalOpacity={globalOpacity}
+        onGlobalOpacityChange={setGlobalOpacity}
+        measurementMode={measurementMode}
+        onToggleMeasurementMode={() => setMeasurementMode(prev => !prev)}
         parts={parts}
         selectedParts={selectedParts}
         onSelectPart={handleSelectPart}
         onGroupSelected={handleGroupSelected}
         onLoadSavedFile={handleLoadSavedFile}
+        onTogglePartVisibility={handleTogglePartVisibility}
+        onChangePartColor={handleChangePartColor}
       />
       <Viewer3D
         file={file}
         explodedValue={explodedValue}
+        globalOpacity={globalOpacity}
+        measurementMode={measurementMode}
         parts={parts}
         selectedParts={selectedParts}
         onPartsParsed={setParts}
